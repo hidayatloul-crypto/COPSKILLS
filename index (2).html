@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<title>COP'SKILLS — Connexion</title>
+<style>
+CSSPLACEHOLDER
+.tab-wrap{display:flex;gap:5px;margin-bottom:16px;padding:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:12px;}
+.tab{flex:1;padding:8px;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid transparent;transition:all .15s;background:transparent;color:rgba(255,255,255,.45);}
+.tab.active{background:rgba(59,184,224,.22);border-color:rgba(59,184,224,.55);color:#3BB8E0;}
+.pin-wrap{display:flex;gap:8px;justify-content:center;margin-bottom:14px;}
+.pin-box{width:52px;height:58px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:12px;color:white;font-size:26px;font-weight:900;text-align:center;outline:none;}
+.pin-box:focus{border-color:#3BB8E0;box-shadow:0 0 0 3px rgba(59,184,224,.18);}
+</style>
+</head>
+<body>
+<div class="blob1"></div><div class="blob2"></div>
+<div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;">
+  <div class="fade-in" style="width:100%;max-width:380px;">
+    <div style="text-align:center;margin-bottom:22px;">
+      <div style="width:68px;height:68px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px;">💡</div>
+      <div style="font-size:26px;font-weight:900;margin-bottom:4px;"><span style="color:#3BB8E0;">COP</span><span style="color:#F5A623;">'</span><span>SKILLS</span></div>
+      <div style="font-size:9px;color:rgba(255,255,255,.30);letter-spacing:.16em;">CHALLENGE YOURSELF · MASTER YOUR SKILLS</div>
+      <div style="font-size:8px;color:rgba(255,255,255,.18);margin-top:3px;">BY COPAG ACADEMY</div>
+    </div>
+    <div class="tab-wrap">
+      <button id="tab-staff" class="tab active" onclick="switchTab('staff')">🔐 Staff</button>
+      <button id="tab-part"  class="tab"        onclick="switchTab('participant')">👤 Participant</button>
+    </div>
+    <!-- STAFF -->
+    <div id="panel-staff">
+      <div class="card-strong" style="padding:22px 20px;">
+        <div id="login-err" class="alert-err" style="display:none;"></div>
+        <div class="row"><label class="lbl">Email professionnel</label><input id="inp-email" type="email" placeholder="vous@copag.ma" class="inp" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+        <div class="row" style="margin-bottom:16px;">
+          <label class="lbl">Mot de passe</label>
+          <div style="position:relative;">
+            <input id="inp-pwd" type="password" placeholder="••••••••" class="inp" style="padding-right:42px;" onkeydown="if(event.key==='Enter')doLogin()"/>
+            <button onclick="togglePwd()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:16px;">👁</button>
+          </div>
+        </div>
+        <button id="btn-login" class="btn btn-primary btn-w" onclick="doLogin()">Se connecter →</button>
+        <p style="text-align:center;font-size:10px;color:rgba(255,255,255,.22);margin-top:12px;">Mot de passe oublié ? Contactez l'administrateur.</p>
+      </div>
+    </div>
+    <!-- PARTICIPANT -->
+    <div id="panel-part" style="display:none;">
+      <div class="card-strong" style="padding:22px 20px;">
+        <div id="part-err" class="alert-err" style="display:none;"></div>
+        <label class="lbl" style="text-align:center;display:block;margin-bottom:10px;">Code de session (4 chiffres)</label>
+        <div class="pin-wrap">
+          <input id="c0" maxlength="1" inputmode="numeric" class="pin-box" oninput="nextPin(this,1)" onkeydown="pinKey(event,0)"/>
+          <input id="c1" maxlength="1" inputmode="numeric" class="pin-box" oninput="nextPin(this,2)" onkeydown="pinKey(event,1)"/>
+          <input id="c2" maxlength="1" inputmode="numeric" class="pin-box" oninput="nextPin(this,3)" onkeydown="pinKey(event,2)"/>
+          <input id="c3" maxlength="1" inputmode="numeric" class="pin-box" oninput="" onkeydown="pinKey(event,3)"/>
+        </div>
+        <div class="row"><label class="lbl">Votre nom complet</label><input id="inp-name" type="text" placeholder="Ex : Mohammed Alami" class="inp" onkeydown="if(event.key==='Enter')joinSession()"/></div>
+        <button id="btn-join" class="btn btn-primary btn-w" onclick="joinSession()">🚀 Rejoindre la session</button>
+        <div class="alert-info" style="margin-top:14px;">📱 Vous pouvez aussi scanner le QR Code affiché par votre formateur.</div>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:10px;color:rgba(255,255,255,.18);margin-top:18px;">COP'SKILLS © COPAG ACADEMY 2026</p>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  const urlP=new URLSearchParams(window.location.search);
+  const qrCode=urlP.get('code'),qrName=urlP.get('name');
+  if(qrCode){switchTab('participant');fillPins(qrCode);if(qrName)document.getElementById('inp-name').value=decodeURIComponent(qrName);}
+
+  // Rediriger si session déjà active
+  db.auth.getSession().then(({data:{session}})=>{
+    if(!session)return;
+    db.from('users').select('role').eq('auth_id',session.user.id).single().then(({data})=>{
+      if(data?.role==='admin')window.location.href='admin.html';
+      else if(data?.role==='formateur')window.location.href='formateur.html';
+    });
+  });
+
+  function switchTab(t){
+    const s=t==='staff';
+    document.getElementById('panel-staff').style.display=s?'block':'none';
+    document.getElementById('panel-part').style.display=s?'none':'block';
+    document.getElementById('tab-staff').className='tab'+(s?' active':'');
+    document.getElementById('tab-part').className='tab'+(!s?' active':'');
+  }
+
+  async function doLogin(){
+    const email=document.getElementById('inp-email').value.trim();
+    const password=document.getElementById('inp-pwd').value;
+    const btn=document.getElementById('btn-login');
+    if(!email||!password)return showE('login','Remplissez tous les champs.');
+    hideE('login');btn.disabled=true;btn.textContent='Connexion...';
+    const {data,error}=await db.auth.signInWithPassword({email,password});
+    if(error){showE('login',mapErr(error));btn.disabled=false;btn.textContent='Se connecter →';return;}
+    const {data:user}=await db.from('users').select('role,status').eq('auth_id',data.user.id).single();
+    if(!user){await db.auth.signOut();showE('login','Profil introuvable. Contactez l\'admin.');btn.disabled=false;btn.textContent='Se connecter →';return;}
+    if(user.status==='suspended'){await db.auth.signOut();showE('login','Compte suspendu. Contactez l\'administrateur.');btn.disabled=false;btn.textContent='Se connecter →';return;}
+    if(user.role==='admin')window.location.href='admin.html';
+    else if(user.role==='formateur')window.location.href='formateur.html';
+    else{await db.auth.signOut();showE('login','Rôle non autorisé.');btn.disabled=false;btn.textContent='Se connecter →';}
+  }
+
+  async function joinSession(){
+    const code=['c0','c1','c2','c3'].map(id=>document.getElementById(id).value).join('');
+    const name=document.getElementById('inp-name').value.trim();
+    const btn=document.getElementById('btn-join');
+    if(code.length!==4)return showE('part','Saisissez les 4 chiffres.');
+    if(!name)return showE('part','Saisissez votre nom complet.');
+    hideE('part');btn.disabled=true;btn.textContent='Recherche...';
+    const {data,error}=await db.from('sessions').select('id').eq('code',code).eq('status','live').limit(1);
+    if(error||!data?.length){showE('part','Aucune session active avec ce code.');btn.disabled=false;btn.textContent='🚀 Rejoindre la session';return;}
+    window.location.href=`participant.html?session=${data[0].id}&name=${encodeURIComponent(name)}`;
+  }
+
+  function fillPins(code){code.toString().split('').forEach((d,i)=>{const el=document.getElementById('c'+i);if(el)el.value=d;});}
+  function nextPin(el,n){if(el.value&&n<4){const x=document.getElementById('c'+n);if(x)x.focus();}}
+  function pinKey(e,i){
+    if(e.key==='Backspace'&&!e.target.value&&i>0)document.getElementById('c'+(i-1)).focus();
+    if(e.key==='Enter')joinSession();
+    if(!/[0-9]/.test(e.key)&&!['Backspace','Tab','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
+  }
+  function togglePwd(){const i=document.getElementById('inp-pwd');i.type=i.type==='password'?'text':'password';}
+  function showE(t,msg){const el=document.getElementById(t==='login'?'login-err':'part-err');el.textContent='❌ '+msg;el.style.display='block';}
+  function hideE(t){document.getElementById(t==='login'?'login-err':'part-err').style.display='none';}
+  function mapErr(e){const m=e.message||'';if(m.includes('Invalid')||m.includes('credentials'))return'Email ou mot de passe incorrect.';if(m.includes('many'))return'Trop de tentatives. Réessayez plus tard.';return m||'Erreur.';}
+</script>
+</body>
+</html>
